@@ -4,30 +4,32 @@
   <meta charset="utf-8" />
   <title>Mini Shooter Mobile</title>
   <style>
-    :root{
-      --bg:#0b1020;--panel:rgba(0,0,0,0.5);--accent:#ffcc33;--text:#e6eef8;
+    :root {
+      --bg:#0b1020; --panel:rgba(0,0,0,0.5); --accent:#ffcc33; --text:#e6eef8;
       font-family:system-ui,Arial;
     }
     *{box-sizing:border-box;margin:0;padding:0}
     html,body{height:100%;background:var(--bg);color:var(--text);overflow:hidden}
-    #game-root{display:flex;align-items:center;justify-content:center;height:100%;padding:20px;position:relative}
-    canvas{display:block;border-radius:8px;box-shadow:0 8px 30px rgba(0,0,0,.7);background:#111;outline:none}
-    #ui{position:absolute;top:18px;left:18px;display:flex;gap:12px;align-items:center}
+    #game-root{width:100%;height:100%;position:relative}
+    canvas{display:block;width:100%;height:100%;background:#111;outline:none}
+    #ui{position:absolute;top:18px;left:18px;display:flex;gap:12px;align-items:center;z-index:5}
     #score,#lives{background:var(--panel);padding:8px 12px;border-radius:8px;font-weight:600}
     #start-btn{margin-left:12px;padding:8px 12px;border-radius:10px;border:none;background:var(--accent);color:#111;font-weight:700;cursor:pointer}
-    #message{position:absolute;right:18px;top:18px;padding:12px 16px;border-radius:8px;background:rgba(0,0,0,0.6)}
+    #message{position:absolute;right:18px;top:18px;padding:12px 16px;border-radius:8px;background:rgba(0,0,0,0.6);z-index:5}
     .hidden{display:none}
+
     /* Мобильные кнопки */
-    #controls{position:absolute;bottom:20px;left:20px;display:flex;gap:40px;touch-action:none}
-    .pad{display:grid;grid-template-columns:repeat(3,50px);grid-template-rows:repeat(3,50px);gap:5px}
-    .btn{background:var(--panel);border-radius:8px;display:flex;align-items:center;justify-content:center;color:var(--accent);font-weight:700;user-select:none}
-    .btn:active{background:var(--accent);color:#111}
-    #fire{width:70px;height:70px;border-radius:50%;background:var(--accent);color:#111;font-weight:700}
+    #controls { position:absolute; bottom:20px; width:100%; display:flex; justify-content:space-between; padding:0 20px; z-index:10; }
+    .pad { display:grid; grid-template-columns:repeat(3,70px); grid-template-rows:repeat(3,70px); gap:8px; }
+    .btn { background:var(--panel); border-radius:12px; display:flex; align-items:center; justify-content:center; color:var(--accent); font-weight:700; font-size:28px; user-select:none; }
+    .btn:active { background:var(--accent); color:#111; }
+    #fire { width:100px; height:100px; border-radius:50%; background:var(--accent); color:#111; font-weight:700; font-size:22px; display:flex; align-items:center; justify-content:center; user-select:none; }
+    #fire:active { background:#fff; color:#000; }
   </style>
 </head>
 <body>
   <div id="game-root">
-    <canvas id="game-canvas" width="960" height="640" tabindex="0"></canvas>
+    <canvas id="game-canvas" tabindex="0"></canvas>
     <div id="ui">
       <div id="score">Score: 0</div>
       <div id="lives">Lives: 3</div>
@@ -46,14 +48,49 @@
   </div>
 
 <script>
+/* ===== ENGINE CORE ===== */
 class EventEmitter{constructor(){this._ev={}}on(n,f){(this._ev[n]||(this._ev[n]=[])).push(f)}emit(n,...a){(this._ev[n]||[]).forEach(f=>f(...a))}}
-class Engine extends EventEmitter{constructor(c){super();this.canvas=c;this.ctx=c.getContext("2d");this.width=c.width;this.height=c.height;this.entities=new Set();this.score=0;this.lives=3}reset(){this.entities.clear();this.score=0;this.lives=3;this.emit("score",0);this.emit("lives",3)}addEntity(e){e.engine=this;this.entities.add(e)}removeEntity(e){this.entities.delete(e)}increaseScore(n=1){this.score+=n;this.emit("score",this.score)}changeLives(d){this.lives+=d;this.emit("lives",this.lives);if(this.lives<=0)this.emit("gameover",this.score)}start(){this._running=true;this._last=performance.now();requestAnimationFrame(this._loop.bind(this))}stop(){this._running=false}_loop(now){if(!this._running)return;let dt=now-this._last;this._last=now;this._update(dt);this._render();requestAnimationFrame(this._loop.bind(this))}_update(dt){for(let e of [...this.entities])e.update&&e.update(dt);let arr=[...this.entities];for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){let a=arr[i],b=arr[j];if(!a.rect||!b.rect)continue;let r1=a.rect(),r2=b.rect();if(!(r2.x>r1.x+r1.w||r2.x+r2.w<r1.x||r2.y>r1.y+r1.h||r2.y+r2.h<r1.y)){a.onCollide&&a.onCollide(b);b.onCollide&&b.onCollide(a)}}}_render(){this.ctx.clearRect(0,0,this.width,this.height);[...this.entities].sort((a,b)=>(a.z||0)-(b.z||0)).forEach(e=>e.render&&e.render(this.ctx))}}
-class Input{constructor(c){this.keys=new Set();this.mouse={x:0,y:0,down:false};addEventListener("keydown",e=>this.keys.add(e.code));addEventListener("keyup",e=>this.keys.delete(e.code));c.addEventListener("mousemove",e=>{let r=c.getBoundingClientRect();this.mouse.x=(e.clientX-r.left)*c.width/r.width;this.mouse.y=(e.clientY-r.top)*c.height/r.height});c.addEventListener("mousedown",()=>this.mouse.down=true);addEventListener("mouseup",()=>this.mouse.down=false)}isDown(k){return this.keys.has(k)}}
-class Player{constructor(e,x,y){this.engine=e;this.x=x;this.y=y;this.w=48;this.h=48;this.z=5;this.color="#0ff";this.input=new Input(e.canvas);this._lastShot=0}update(dt){let dx=0,dy=0;if(this.input.isDown("ArrowLeft")||this.input.isDown("KeyA")||mobile.left)dx-=1;if(this.input.isDown("ArrowRight")||this.input.isDown("KeyD")||mobile.right)dx+=1;if(this.input.isDown("ArrowUp")||this.input.isDown("KeyW")||mobile.up)dy-=1;if(this.input.isDown("ArrowDown")||this.input.isDown("KeyS")||mobile.down)dy+=1;if(dx&&dy){dx*=0.707;dy*=0.707}this.x+=dx*0.35*dt;this.y+=dy*0.35*dt;this.x=Math.max(8,Math.min(this.engine.width-this.w-8,this.x));this.y=Math.max(8,Math.min(this.engine.height-this.h-8,this.y));let now=performance.now();if((this.input.isDown("Space")||this.input.mouse.down||mobile.fire)&&now-this._lastShot>180){this._shoot();this._lastShot=now}}_shoot(){this.engine.addEntity(new Bullet(this.engine,this.x+10,this.y-10));this.engine.addEntity(new Bullet(this.engine,this.x+this.w-18,this.y-10))}render(ctx){ctx.fillStyle=this.color;ctx.fillRect(this.x,this.y,this.w,this.h)}rect(){return{x:this.x,y:this.y,w:this.w,h:this.h}}onCollide(o){if(o.type==="enemy"){this.engine.removeEntity(o);this.engine.changeLives(-1);this.x=(this.engine.width-this.w)/2;this.y=this.engine.height-80}}}
-class Bullet{constructor(e,x,y){this.engine=e;this.x=x;this.y=y;this.w=6;this.h=12;this.type="bullet";this.z=4;this.color="#ff6";this.vy=-0.6;this.life=3000;this._born=performance.now()}update(dt){this.y+=this.vy*dt;if(performance.now()-this._born>this.life||this.y<-20)this.engine.removeEntity(this)}render(ctx){ctx.fillStyle=this.color;ctx.fillRect(this.x,this.y,this.w,this.h)}rect(){return{x:this.x,y:this.y,w:this.w,h:this.h}}onCollide(o){if(o.type==="enemy"){this.engine.removeEntity(o);this.engine.removeEntity(this);this.engine.increaseScore(10)}}}
-class Enemy{constructor(e,x,y){this.engine=e;this.x=x;this.y=y;this.w=44;this.h=44;this.type="enemy";this.z=3;this.vx=(Math.random()-0.5)*0.12;this.vy=0.07+Math.random()*0.12}update(dt){this.x+=this.vx*dt;this.y+=this.vy*dt;if(this.x<8||this.x+this.w>this.engine.width-8)this.vx*=-1;if(this.y>this.engine.height+40){this.engine.changeLives(-1);this.engine.removeEntity(this)}}render(ctx){ctx.fillStyle="#f66";ctx.fillRect(this.x,this.y,this.w,this.h)}rect(){return{x:this.x,y:this.y,w:this.w,h:this.h}}}
-class UI{constructor(){this.s=document.getElementById("score");this.l=document.getElementById("lives");this.m=document.getElementById("message")}updateScore(v){this.s.textContent="Score: "+v}updateLives(v){this.l.textContent="Lives: "+v}showMessage(t){this.m.textContent=t;this.m.classList.remove("hidden")}hideMessage(){this.m.classList.add("hidden")}}
-/* Мобильные кнопки */
+class Engine extends EventEmitter{
+  constructor(c){super();this.canvas=c;this.ctx=c.getContext("2d");this.resize();this.entities=new Set();this.score=0;this.lives=3;
+    window.addEventListener("resize",()=>this.resize());}
+  resize(){this.canvas.width=this.canvas.clientWidth;this.canvas.height=this.canvas.clientHeight;this.width=this.canvas.width;this.height=this.canvas.height;}
+  reset(){this.entities.clear();this.score=0;this.lives=3;this.emit("score",0);this.emit("lives",3)}
+  addEntity(e){e.engine=this;this.entities.add(e)}removeEntity(e){this.entities.delete(e)}
+  increaseScore(n=1){this.score+=n;this.emit("score",this.score)}
+  changeLives(d){this.lives+=d;this.emit("lives",this.lives);if(this.lives<=0)this.emit("gameover",this.score)}
+  start(){this._running=true;this._last=performance.now();requestAnimationFrame(this._loop.bind(this))}
+  stop(){this._running=false}
+  _loop(now){if(!this._running)return;let dt=now-this._last;this._last=now;this._update(dt);this._render();requestAnimationFrame(this._loop.bind(this))}
+  _update(dt){for(let e of [...this.entities])e.update&&e.update(dt);
+    let arr=[...this.entities];for(let i=0;i<arr.length;i++)for(let j=i+1;j<arr.length;j++){
+      let a=arr[i],b=arr[j];if(!a.rect||!b.rect)continue;let r1=a.rect(),r2=b.rect();
+      if(!(r2.x>r1.x+r1.w||r2.x+r2.w<r1.x||r2.y>r1.y+r1.h||r2.y+r2.h<r1.y)){a.onCollide&&a.onCollide(b);b.onCollide&&b.onCollide(a)}}}
+  _render(){this.ctx.clearRect(0,0,this.width,this.height);[...this.entities].sort((a,b)=>(a.z||0)-(b.z||0)).forEach(e=>e.render&&e.render(this.ctx))}
+}
+class Input{constructor(c){this.keys=new Set();this.mouse={x:0,y:0,down:false};addEventListener("keydown",e=>this.keys.add(e.code));addEventListener("keyup",e=>this.keys.delete(e.code));
+  c.addEventListener("mousedown",()=>this.mouse.down=true);addEventListener("mouseup",()=>this.mouse.down=false)}isDown(k){return this.keys.has(k)}}
+class Player{constructor(e,x,y){this.engine=e;this.x=x;this.y=y;this.w=48;this.h=48;this.z=5;this.color="#0ff";this.input=new Input(e.canvas);this._lastShot=0}
+  update(dt){let dx=0,dy=0;if(this.input.isDown("ArrowLeft")||this.input.isDown("KeyA")||mobile.left)dx-=1;if(this.input.isDown("ArrowRight")||this.input.isDown("KeyD")||mobile.right)dx+=1;
+    if(this.input.isDown("ArrowUp")||this.input.isDown("KeyW")||mobile.up)dy-=1;if(this.input.isDown("ArrowDown")||this.input.isDown("KeyS")||mobile.down)dy+=1;
+    if(dx&&dy){dx*=0.707;dy*=0.707}this.x+=dx*0.35*dt;this.y+=dy*0.35*dt;
+    this.x=Math.max(8,Math.min(this.engine.width-this.w-8,this.x));this.y=Math.max(8,Math.min(this.engine.height-this.h-8,this.y));
+    let now=performance.now();if((this.input.isDown("Space")||this.input.mouse.down||mobile.fire)&&now-this._lastShot>180){this._shoot();this._lastShot=now}}
+  _shoot(){this.engine.addEntity(new Bullet(this.engine,this.x+10,this.y-10));this.engine.addEntity(new Bullet(this.engine,this.x+this.w-18,this.y-10))}
+  render(ctx){ctx.fillStyle=this.color;ctx.fillRect(this.x,this.y,this.w,this.h)}
+  rect(){return{x:this.x,y:this.y,w:this.w,h:this.h}}
+  onCollide(o){if(o.type==="enemy"){this.engine.removeEntity(o);this.engine.changeLives(-1);this.x=(this.engine.width-this.w)/2;this.y=this.engine.height-80}}}
+class Bullet{constructor(e,x,y){this.engine=e;this.x=x;this.y=y;this.w=6;this.h=12;this.type="bullet";this.z=4;this.color="#ff6";this.vy=-0.6;this.life=3000;this._born=performance.now()}
+  update(dt){this.y+=this.vy*dt;if(performance.now()-this._born>this.life||this.y<-20)this.engine.removeEntity(this)}
+  render(ctx){ctx.fillStyle=this.color;ctx.fillRect(this.x,this.y,this.w,this.h)}
+  rect(){return{x:this.x,y:this.y,w:this.w,h:this.h}}
+  onCollide(o){if(o.type==="enemy"){this.engine.removeEntity(o);this.engine.removeEntity(this);this.engine.increaseScore(10)}}}
+class Enemy{constructor(e,x,y){this.engine=e;this.x=x;this.y=y;this.w=44;this.h=44;this.type="enemy";this.z=3;this.vx=(Math.random()-0.5)*0.12;this.vy=0.07+Math.random()*0.12}
+  update(dt){this.x+=this.vx*dt;this.y+=this.vy*dt;if(this.x<8||this.x+this.w>this.engine.width-8)this.vx*=-1;if(this.y>this.engine.height+40){this.engine.changeLives(-1);this.engine.removeEntity(this)}}
+  render(ctx){ctx.fillStyle="#f66";ctx.fillRect(this.x,this.y,this.w,this.h)}
+  rect(){return{x:this.x,y:this.y,w:this.w,h:this.h}}}
+class UI{constructor(){this.s=document.getElementById("score");this.l=document.getElementById("lives");this.m=document.getElementById("message")}
+  updateScore(v){this.s.textContent="Score: "+v}updateLives(v){this.l.textContent="Lives: "+v}showMessage(t){this.m.textContent=t;this.m.classList.remove("hidden")}hideMessage(){this.m.classList.add("hidden")}}
+/* ===== MOBILE INPUT ===== */
 const mobile={up:0,down:0,left:0,right:0,fire:0};
 document.querySelectorAll(".btn").forEach(b=>{
   b.addEventListener("touchstart",e=>{e.preventDefault();mobile[b.dataset.dir]=1});
@@ -62,7 +99,7 @@ document.querySelectorAll(".btn").forEach(b=>{
 const fireBtn=document.getElementById("fire");
 fireBtn.addEventListener("touchstart",e=>{e.preventDefault();mobile.fire=1});
 fireBtn.addEventListener("touchend",e=>{e.preventDefault();mobile.fire=0});
-/* MAIN */
+/* ===== MAIN ===== */
 const canvas=document.getElementById("game-canvas");
 const engine=new Engine(canvas);
 const ui=new UI();
