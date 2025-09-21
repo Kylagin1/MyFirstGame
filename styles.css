@@ -1,0 +1,42 @@
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    overflow: hidden; /* Предотвращаем прокрутку */
+}
+
+#startScreen {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+}
+
+#startButton {
+    padding: 15px 30px;
+    font-size: 20px;
+    cursor: pointer;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+}
+
+#startButton:hover {
+    background-color: #45a049;
+}
+
+#gameContainer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+}
+
+#character {
+    position: absolute; /* Убедимся, что персонаж можно перемещать */
+    width: 100px; /* Установите нужный размер */
+    height: auto; /* Сохраняем пропорции */
+    user-select: none; /* Предотвращаем выделение */
+}
