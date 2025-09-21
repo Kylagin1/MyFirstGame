@@ -20,50 +20,54 @@
 
     /* Мобильные кнопки */
     #controls {
-      position:absolute; bottom:20px; width:100%;
+      position:absolute; bottom:20px; left:0; right:0;
       display:flex; justify-content:space-between;
       padding:0 20px; z-index:10;
     }
     .pad {
+      position:relative;
+      width:260px; height:260px;
       display:grid;
-      grid-template-columns:repeat(3,80px);
-      grid-template-rows:repeat(3,80px);
-      gap:10px;
-      opacity:0.7;
+      grid-template-columns:repeat(3, 1fr);
+      grid-template-rows:repeat(3, 1fr);
+      gap:20px;
     }
     .btn {
       background:var(--panel);
-      border-radius:16px;
+      border-radius:20px;
       display:flex;
       align-items:center;
       justify-content:center;
       color:var(--accent);
       font-weight:700;
-      font-size:30px;
-      box-shadow:0 4px 10px rgba(0,0,0,0.6);
+      font-size:40px;
+      width:100px;
+      height:100px;
+      box-shadow:0 6px 14px rgba(0,0,0,0.6);
       user-select:none;
       transition:all 0.15s ease;
     }
     .btn:active {
       background:var(--accent);
       color:#111;
-      transform:scale(0.95);
+      transform:scale(0.9);
     }
     #fire {
-      width:120px;
-      height:120px;
+      width:140px;
+      height:140px;
       border-radius:50%;
       background:var(--panel);
       color:var(--accent);
       font-weight:700;
-      font-size:24px;
+      font-size:28px;
       display:flex;
       align-items:center;
       justify-content:center;
       box-shadow:0 6px 14px rgba(0,0,0,0.7);
-      opacity:0.8;
+      opacity:0.9;
       user-select:none;
       transition:all 0.15s ease;
+      margin-right:20px;
     }
     #fire:active {
       background:var(--accent);
